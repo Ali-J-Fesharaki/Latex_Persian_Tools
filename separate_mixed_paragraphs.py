@@ -8,7 +8,6 @@ in text editors.
 """
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
@@ -128,7 +127,7 @@ def is_latex_command_line(line):
     return False
 
 
-def separate_mixed_line(line, indent_level=0):
+def separate_mixed_line(line):
     """
     Separate a line with mixed languages into multiple lines.
     Each language segment gets its own line, preserving indentation.
@@ -163,7 +162,7 @@ def separate_mixed_line(line, indent_level=0):
     return separated_lines
 
 
-def is_paragraph_line(line, context_lines=None):
+def is_paragraph_line(line, min_length=40):
     """
     Determine if a line is part of a text paragraph (not a command, not too short).
     Medium to long paragraphs are the target.
@@ -180,7 +179,7 @@ def is_paragraph_line(line, context_lines=None):
     
     # Consider lines with substantial text (medium to long)
     # Minimum length threshold for processing
-    if len(stripped) < 40:  # Short lines are not processed
+    if len(stripped) < min_length:  # Short lines are not processed
         return False
     
     return True
@@ -210,7 +209,7 @@ def process_tex_file(input_path, output_path=None, min_length=40):
     
     for i, line in enumerate(lines):
         # Check if this is a paragraph line that should be processed
-        if is_paragraph_line(line) and has_mixed_languages(line):
+        if is_paragraph_line(line, min_length) and has_mixed_languages(line):
             # Separate the mixed-language line
             separated = separate_mixed_line(line)
             if len(separated) > 1:
