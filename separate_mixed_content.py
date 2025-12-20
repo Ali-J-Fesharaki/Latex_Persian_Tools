@@ -11,21 +11,24 @@ import re
 import sys
 import argparse
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
+
+
+# Compile regex patterns at module level for better performance
+PERSIAN_PATTERN = re.compile(r'[\u0600-\u06FF]')
+ENGLISH_PATTERN = re.compile(r'[a-zA-Z]')
 
 
 def has_persian(text: str) -> bool:
     """Check if text contains Persian characters."""
     # Persian Unicode range: \u0600-\u06FF (Arabic and Persian)
-    persian_pattern = re.compile(r'[\u0600-\u06FF]')
-    return bool(persian_pattern.search(text))
+    return bool(PERSIAN_PATTERN.search(text))
 
 
 def has_english(text: str) -> bool:
     """Check if text contains English alphabetic characters."""
     # Match English letters
-    english_pattern = re.compile(r'[a-zA-Z]')
-    return bool(english_pattern.search(text))
+    return bool(ENGLISH_PATTERN.search(text))
 
 
 def is_latex_command(line: str) -> bool:
@@ -80,7 +83,12 @@ def split_mixed_line(line: str) -> List[str]:
         
         # Skip neutral words (numbers, punctuation) - add to current group
         if word_lang == 'neutral':
-            current_group.append(word)
+            # Only add to current group if we have established a language
+            if current_lang is not None:
+                current_group.append(word)
+            else:
+                # Keep neutral words at start as standalone if no language yet
+                result.append(word)
             continue
         
         # If this is mixed word or language changed, finalize current group
