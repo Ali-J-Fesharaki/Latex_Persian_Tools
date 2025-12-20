@@ -53,3 +53,22 @@ which appears on the same line.
 #### Requirements
 - Python 3.6+
 - No external dependencies required
+
+## Testing
+
+Run the test suite to verify the tool works correctly:
+
+```bash
+python3 test_separator.py
+```
+
+The test suite includes:
+- Character detection tests (Persian/English)
+- Mixed language detection
+- Line separation logic
+- File processing
+- Error handling
+
+## Contributing
+
+Contributions are welcome! Please ensure tests pass before submitting pull requests.
