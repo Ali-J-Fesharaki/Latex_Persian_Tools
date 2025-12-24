@@ -17,6 +17,11 @@ from typing import List
 # Compile regex patterns at module level for better performance
 PERSIAN_PATTERN = re.compile(r'[\u0600-\u06FF]')
 ENGLISH_PATTERN = re.compile(r'[a-zA-Z]')
+# Pattern for characters that should be grouped with English (ASCII symbols, numbers, etc.)
+# Excludes basic punctuation like . , ; ! ? that can appear in both languages
+ENGLISH_SYMBOLS_PATTERN = re.compile(r'[a-zA-Z0-9$()=[\]{}|<>+\-*/\\\'"`~@#%^&_]')
+# Basic punctuation that can belong to either language context
+PUNCTUATION_PATTERN = re.compile(r'[.,;:!?]')
 
 
 def has_persian(text: str) -> bool:
@@ -41,19 +46,82 @@ def is_latex_command(line: str) -> bool:
             stripped == '')
 
 
+def has_english_or_symbols(text: str) -> bool:
+    """Check if text contains English characters or symbols that should be grouped with English."""
+    return bool(ENGLISH_SYMBOLS_PATTERN.search(text))
+
+
 def get_language_type(text: str) -> str:
     """Determine the predominant language in text."""
     has_per = has_persian(text)
-    has_eng = has_english(text)
+    has_eng_or_sym = has_english_or_symbols(text)
     
-    if has_per and has_eng:
+    if has_per and has_eng_or_sym:
         return 'mixed'
     elif has_per:
         return 'persian'
-    elif has_eng:
+    elif has_eng_or_sym:
         return 'english'
     else:
         return 'neutral'
+
+
+def split_mixed_word(word: str) -> List[str]:
+    """Split a word that contains both Persian and English/symbols into separate parts."""
+    if not word:
+        return []
+    
+    parts = []
+    current_part = []
+    current_type = None
+    
+    for char in word:
+        if PERSIAN_PATTERN.search(char):
+            char_type = 'persian'
+        elif ENGLISH_SYMBOLS_PATTERN.search(char):
+            char_type = 'english'
+        elif PUNCTUATION_PATTERN.search(char):
+            # Punctuation follows the current type context
+            char_type = 'punctuation'
+        else:
+            char_type = 'neutral'
+        
+        # Punctuation follows the current language
+        if char_type == 'punctuation':
+            if current_type in ['persian', 'english']:
+                current_part.append(char)
+            else:
+                # No context, treat as neutral
+                if current_part:
+                    parts.append(''.join(current_part))
+                    current_part = []
+                current_part.append(char)
+                current_type = 'neutral'
+        elif char_type == 'neutral' and current_type is not None:
+            current_part.append(char)
+        elif char_type == 'neutral':
+            # Start a new neutral part
+            if current_part:
+                parts.append(''.join(current_part))
+                current_part = []
+            current_part.append(char)
+            current_type = 'neutral'
+        elif current_type is None or char_type == current_type:
+            # Same type, add to current part
+            current_part.append(char)
+            current_type = char_type
+        else:
+            # Type changed, save current part and start new one
+            if current_part:
+                parts.append(''.join(current_part))
+            current_part = [char]
+            current_type = char_type
+    
+    # Add remaining part
+    if current_part:
+        parts.append(''.join(current_part))
+    
+    return parts if parts else [word]
 
 
 def split_mixed_line(line: str) -> List[str]:
@@ -81,31 +149,52 @@ def split_mixed_line(line: str) -> List[str]:
     for word in words:
         word_lang = get_language_type(word)
         
-        # Skip neutral words (numbers, punctuation) - add to current group
-        if word_lang == 'neutral':
-            # Only add to current group if we have established a language
-            if current_lang is not None:
-                current_group.append(word)
-            else:
-                # Keep neutral words at start as standalone if no language yet
-                result.append(word)
-            continue
-        
-        # If this is mixed word or language changed, finalize current group
+        # If this is a mixed word, split it into parts
         if word_lang == 'mixed':
-            # Mixed word - try to split it
+            # Save current group before processing mixed word
             if current_group:
                 result.append(' '.join(current_group))
                 current_group = []
-            result.append(word)
-            current_lang = None
+                current_lang = None
+            
+            # Split the mixed word and process each part
+            parts = split_mixed_word(word)
+            for part in parts:
+                part_lang = get_language_type(part)
+                if part_lang == 'neutral':
+                    # Attach neutral parts to current group if available
+                    if current_group:
+                        current_group.append(part)
+                    else:
+                        result.append(part)
+                elif current_lang is None or part_lang == current_lang:
+                    # Same language or first part
+                    current_group.append(part)
+                    current_lang = part_lang
+                else:
+                    # Language changed
+                    if current_group:
+                        result.append(' '.join(current_group))
+                    current_group = [part]
+                    current_lang = part_lang
+        
+        elif word_lang == 'neutral':
+            # Attach neutral words to current group if available
+            if current_lang is not None:
+                current_group.append(word)
+            else:
+                # No current group, add as standalone
+                result.append(word)
+        
         elif current_lang is None:
             # First language group
             current_lang = word_lang
             current_group.append(word)
+        
         elif word_lang == current_lang:
             # Same language, add to current group
             current_group.append(word)
+        
         else:
             # Language changed, finalize current group and start new one
             if current_group:
