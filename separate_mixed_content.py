@@ -19,7 +19,7 @@ PERSIAN_PATTERN = re.compile(r'[\u0600-\u06FF]')
 ENGLISH_PATTERN = re.compile(r'[a-zA-Z]')
 # Pattern for characters that should be grouped with English (ASCII symbols, numbers, etc.)
 # Excludes basic punctuation like . , ; ! ? that can appear in both languages
-ENGLISH_SYMBOLS_PATTERN = re.compile(r'[a-zA-Z0-9$()=[\]{}|<>+\-*/\\\'"`~@#%^&_]')
+ENGLISH_SYMBOLS_PATTERN = re.compile(r'[a-zA-Z0-9$()=\[\]{}|<>+*/\\\'"`~@#%^&_-]')
 # Basic punctuation that can belong to either language context
 PUNCTUATION_PATTERN = re.compile(r'[.,;:!?]')
 
